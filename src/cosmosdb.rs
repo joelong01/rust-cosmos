@@ -4,11 +4,12 @@ use crate::log_return_err;
  */
 use crate::models::{CosmosSecrets, User};
 use crate::utility::{get_id, COLLECTION_NAME, DATABASE_NAME};
+use azure_core::error::ErrorKind;
 use log::{error};
 use anyhow::Result;
 
 use azure_data_cosmos::prelude::{
-    AuthorizationToken, CollectionClient, CosmosClient, DatabaseClient,
+    AuthorizationToken, CollectionClient, CosmosClient, DatabaseClient, Query,
 };
 use futures::StreamExt;
 use log::{info};
@@ -209,4 +210,39 @@ impl UserDb {
             Err(e) => Err(e),
         }
     }
+
+     /**
+     *  an api that finds a user by the id in the cosmosdb users collection. 
+     */
+    pub async fn find_user(&self, userid: &str) -> Result<User, azure_core::Error> {
+        let query = format!("SELECT * FROM {} u WHERE u.id == {}", COLLECTION_NAME, userid);
+        let query = Query::new(query);
+    
+        let mut stream = self
+            .users_collection
+            .as_ref()
+            .unwrap()
+            .query_documents(query)
+            .into_stream::<serde_json::Value>();
+    //
+    // this just matches what list does, but only returns the first one
+    // we are getting an error right now, but nothing to indicate what the error is.
+        while let Some(response) = stream.next().await {
+            match response {
+                Ok(response) => {
+                    info!("\n{:#?}", response);
+                    for doc in response.documents(){
+                        // Process the document
+                        let user: User = serde_json::from_value(doc.clone())?;
+                        return Ok(user);  // return user if found
+                    }
+                }
+                Err(e) => {
+                    log_return_err!(e)
+                }
+            }
+        }
+        Err(azure_core::Error::new(ErrorKind::Other, "User not found"))  // return error if user not found
+    }
+    
 }

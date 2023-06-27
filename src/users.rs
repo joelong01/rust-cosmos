@@ -5,15 +5,14 @@ use crate::utility::{COLLECTION_NAME, DATABASE_NAME};
  * this module implements the WebApi to create the database/collection, list all the users, and to create/find/delete
  * a User document in CosmosDb
  */
-use actix_web::{delete, get, post, web, HttpResponse};
+use actix_web::{web, HttpResponse};
 use log::trace;
 
 /**
  *  this will get a list of all documents.  Note this does *not* do pagination. This would be a reasonable next step to
  *  show in the sample
  */
-#[get("api/v1.0/users")]
-pub async fn get() -> HttpResponse {
+pub async fn list_users() -> HttpResponse {
     //
     //  this match should always succeed as it is tested in main()
     let userdb = UserDb::new().await;
@@ -28,12 +27,29 @@ pub async fn get() -> HttpResponse {
             .body(format!("Failed to retrieve user list: {}", err)),
     }
 }
+/**
+ *  this will get a list of all documents.  Note this does *not* do pagination. This would be a reasonable next step to
+ *  show in the sample
+ */
+pub async fn find_user_by_id(id: web::Path<String>) -> HttpResponse {
+    //
+    //  this match should always succeed as it is tested in main()
+    let userdb = UserDb::new().await;
 
+    // Get list of users
+    match userdb.find_user(&id).await {
+        Ok(user) => HttpResponse::Ok()
+            .content_type("application/json")
+            .json(user),
+        Err(err) => HttpResponse::NotFound()
+            .content_type("text/plain")
+            .body(format!("Failed to retrieve user list: {}", err)),
+    }
+}
 /**
  * this sets up CosmosDb to make the sample run. the only prereq is the secrets set in
  * .devconainter/required-secrets.json, this API will call setupdb. this just calls the setupdb api and deals with errors
  */
-#[post("/api/v1.0/setup")]
 pub async fn setup() -> HttpResponse {
     let userdb = UserDb::new().await;
     match userdb.setupdb().await {
@@ -52,8 +68,6 @@ pub async fn setup() -> HttpResponse {
  *  to call this API, set the form data in 'x-www-form-urlencoded', *not* in 'form-data', as that will fail with a
  *  hard-to-figure-out error in actix_web deserialize layer.
  */
-
-#[post("api/v1.0/users")]
 pub async fn create(user_req: web::Form<PartialUser>) -> HttpResponse {
     let pp: PartialUser = user_req.into_inner();
     let user: User = pp.into();
@@ -77,7 +91,6 @@ pub async fn create(user_req: web::Form<PartialUser>) -> HttpResponse {
     }
 }
 
-#[delete("/api/0.1/users/{id}")]
 pub async fn delete(id: web::Path<String>) -> HttpResponse {
     // match parse_number(&id.into_inner()) {
     //     Ok(number) => HttpResponse::Ok().body(format!("Parsed number: {}", number)),
