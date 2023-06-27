@@ -225,24 +225,24 @@ impl UserDb {
             .unwrap()
             .query_documents(query)
             .into_stream::<serde_json::Value>();
-
-        match stream.next().await {
-            Some(Ok(response)) => {
-                info!("\n{:#?}", response);
-                let document = response.documents().next();
-                match document {
-                    Some(u) => {
-                        let user: User = serde_json::from_value(u.clone())?;
-                        Ok(user.clone())
+        //
+        // this just matches what list does, but only returns the first one
+        // we are getting an error right now, but nothing to indicate what the error is.
+        while let Some(response) = stream.next().await {
+            match response {
+                Ok(response) => {
+                    info!("\n{:#?}", response);
+                    for doc in response.documents() {
+                        // Process the document
+                        let user: User = serde_json::from_value(doc.clone())?;
+                        return Ok(user); // return user if found
                     }
-                    None => Err(azure_core::Error::new(ErrorKind::Other, "User not found")),
+                }
+                Err(e) => {
+                    log_return_err!(e)
                 }
             }
-            Some(Err(e)) => {
-                error!("{}", e);
-                Err(e.into())
-            }
-            None => Err(azure_core::Error::new(ErrorKind::Other, "Unexpected error")),
         }
+        Err(azure_core::Error::new(ErrorKind::Other, "User not found")) // return error if user not found
     }
 }
