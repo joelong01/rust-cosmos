@@ -12,16 +12,10 @@ mod utility;
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use cosmosdb::get_cosmos_secrets;
-use log::{error, trace};
+use log::{trace, error};
 use once_cell::sync::OnceCell;
-use opentelemetry::{
-    global, runtime::TokioCurrentThread, sdk::propagation::TraceContextPropagator,
-};
 use std::env;
-use tracing_actix_web::TracingLogger;
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::{EnvFilter, Registry};
+
 
 /**
  *  Code to pick a port in a threadsafe way -- either specified in an environment variable named COSMOS_RUST_SAMPLE_PORT
@@ -64,7 +58,8 @@ async fn main() -> std::io::Result<()> {
     //   turn on max logging by setting web, server, and rust to trace level logging
 
     env::set_var("RUST_LOG", "actix_web=trace,actix_server=trace,rust=trace");
-    init_telemetry();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
 
     let port: String = safe_set_port!();
     // this looks up env variables and puts them into a rust structt - if they aren't set, we error out
@@ -89,7 +84,6 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(Cors::permissive())
-            .wrap(TracingLogger::default())
             .service(
                 web::scope("/api").service(
                     web::scope("/v1")
@@ -104,28 +98,4 @@ async fn main() -> std::io::Result<()> {
     .bind(format!("0.0.0.0:{}", port))?
     .run()
     .await
-}
-
-//
-fn init_telemetry() {
-    let app_name = "cosmos-rust";
-
-    // Start a new Jaeger trace pipeline. Spans are exported in batches.
-    global::set_text_map_propagator(TraceContextPropagator::new());
-    let tracer = opentelemetry_jaeger::new_agent_pipeline()
-        .with_service_name(app_name)
-        .install_batch(TokioCurrentThread)
-        .expect("Failed to install OpenTelemetry tracer.");
-
-    // Tunable via `RUST_LOG` env variable
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info"));
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    let formatting_layer = BunyanFormattingLayer::new(app_name.into(), std::io::stdout);
-    let subscriber = Registry::default()
-        .with(env_filter)
-        .with(telemetry)
-        .with(JsonStorageLayer)
-        .with(formatting_layer);
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("Failed to install `tracing` subscriber.")
 }
