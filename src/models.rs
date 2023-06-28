@@ -53,7 +53,7 @@ pub struct PartialUser {
 impl From<PartialUser> for User {
     fn from(client_player: PartialUser) -> Self {
         // You will generate the player_id and number here
-        let id = format!("unique_id{}", get_id());
+        let id = get_id();
         let partition_key = 1;
 
         User {

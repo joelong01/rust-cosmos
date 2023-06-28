@@ -10,8 +10,8 @@ use std::cell::RefCell;
 thread_local! {
     static RNG: RefCell<StdRng> = RefCell::new(StdRng::from_entropy());
 }
-pub fn get_id() -> u64 {
-    RNG.with(|rng| rng.borrow_mut().gen())
+pub fn get_id() -> String {
+    format!("unique_id{}", RNG.with(|rng| rng.borrow_mut().gen::<u64>()))
 }
 
 /**
