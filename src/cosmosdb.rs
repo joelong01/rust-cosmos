@@ -1,7 +1,8 @@
-use crate::log_return_err;
 /**
  *  this is the class that calls directly to CosmosDb --
  */
+
+use crate::log_return_err;
 use crate::models::{CosmosSecrets, User};
 use anyhow::Result;
 use azure_core::error::{ErrorKind, Result as AzureResult};
@@ -135,30 +136,13 @@ impl UserDb {
             .create_collection(self.collection_name.to_string(), "/partition_key")
             .await
         {
-            Ok(..) => info!("\tCreated {} collection", self.collection_name),
+            Ok(..) => {
+                info!("\tCreated {} collection", self.collection_name);
+                Ok(())
+            },
             Err(e) => log_return_err!(e),
         }
 
-        // add some users to the collection
-        // let user = User {
-        //     email: "test@outlook.com".to_string(),
-        //     partition_key: 1,
-        //     name: "joe".to_string(),
-        //     id: get_id(),
-        // };
-        // match self
-        //     .database
-        //     .as_ref()
-        //     .unwrap()
-        //     .collection_client(collection_name.to_string())
-        //     .create_document(user)
-        //     .await
-        // {
-        //     Ok(..) => info!("\tCreated root document"),
-        //     Err(e) => log_return_err!(e),
-        // }
-
-        Ok(())
     }
     /**
      *  this will return *all* (non paginated) Users in the collection
