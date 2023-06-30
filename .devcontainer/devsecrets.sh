@@ -180,8 +180,9 @@ function save_in_codespaces() {
     length=$(echo "$json_array" | jq '. | length')
     for ((i = 0; i < length; i++)); do
         environmentVariable=$(echo "$json_array" | jq -r ".[$i].environmentVariable")
-        val="${!environmentVariable}" # we assume that this has been set before this function is called
+        eval "val=\"\$${environmentVariable}\""  # eval can be used in both bash and zsh to perform indirect reference
         url="https://api.github.com/user/codespaces/secrets/$environmentVariable/repositories"
+        
         # this curl syntax will allow us to get the resonse and the response code
         response=$(curl -s -w "%{http_code}" -H "Authorization: Bearer $gh_pat" "$url")
         response_code=${response: -3}

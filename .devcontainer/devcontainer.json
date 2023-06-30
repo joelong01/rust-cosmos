@@ -14,9 +14,6 @@
 	]
     }
   },
-  "mounts": [
-    "source=/Users/joelong/GitHub/GameService,target=/GameService,type=bind,consistency=cached"
-],
   "features": {
     "ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
 		"plugins": "ssh-agent npm",
