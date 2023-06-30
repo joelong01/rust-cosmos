@@ -1,4 +1,3 @@
-
 /**
  * this module implements the WebApi to create the database/collection, list all the users, and to create/find/delete
  * a User document in CosmosDb
@@ -7,7 +6,19 @@ use crate::cosmosdb::UserDb;
 use crate::models::{PartialUser, User};
 use crate::utility::{COLLECTION_NAME, DATABASE_NAME};
 use actix_web::{web, HttpResponse};
+use azure_core::StatusCode;
+use serde::Serialize;
 
+/**
+ *  We want every response to be in JSON format so that it is easier to script calling the service...when
+ *  we don't have "natural" JSON (e.g. when we call 'setup'), we return the JSON of this object.
+ */
+#[derive(Debug, Serialize, Clone)]
+struct UserResponse {
+    message: String,
+    status: StatusCode,
+    body: String,
+}
 
 /**
  *  this will get a list of all documents.  Note this does *not* do pagination. This would be a reasonable next step to
@@ -23,9 +34,16 @@ pub async fn list_users() -> HttpResponse {
         Ok(users) => HttpResponse::Ok()
             .content_type("application/json")
             .json(users),
-        Err(err) => HttpResponse::NotFound()
-            .content_type("text/plain")
-            .body(format!("Failed to retrieve user list: {}", err)),
+        Err(err) => {
+            let response = UserResponse {
+                message: format!("Failed to retrieve user list: {}", err),
+                status: StatusCode::NotFound,
+                body: "".to_owned(),
+            };
+            HttpResponse::NotFound()
+                .content_type("application/json")
+                .json(response)
+        }
     }
 }
 /**
@@ -42,9 +60,16 @@ pub async fn find_user_by_id(id: web::Path<String>) -> HttpResponse {
         Ok(user) => HttpResponse::Ok()
             .content_type("application/json")
             .json(user),
-        Err(err) => HttpResponse::NotFound()
-            .content_type("text/plain")
-            .body(format!("Failed to retrieve user list: {}", err)),
+        Err(err) => {
+            let response = UserResponse {
+                message: format!("Failed to find user: {}", err),
+                status: StatusCode::NotFound,
+                body: "".to_owned(),
+            };
+            HttpResponse::NotFound()
+                .content_type("application/json")
+                .json(response)
+        }
     }
 }
 /**
@@ -54,13 +79,29 @@ pub async fn find_user_by_id(id: web::Path<String>) -> HttpResponse {
 pub async fn setup() -> HttpResponse {
     let userdb = UserDb::new(DATABASE_NAME, COLLECTION_NAME).await;
     match userdb.setupdb().await {
-        Ok(..) => HttpResponse::Ok().content_type("text/plain").body(format!(
-            "database: {} collection: {} \ncreated",
-            DATABASE_NAME, COLLECTION_NAME
-        )),
-        Err(err) => HttpResponse::BadRequest()
-            .content_type("text/plain")
-            .body(format!("Failed to create database: {}", err.to_string())),
+        Ok(..) => {
+            let response = UserResponse {
+                message: format!(
+                    "database: {} collection: {} \ncreated",
+                    DATABASE_NAME, COLLECTION_NAME
+                ),
+                status: StatusCode::Ok,
+                body: "".to_owned(),
+            };
+            HttpResponse::Ok()
+                .content_type("application/json")
+                .json(response)
+        }
+        Err(err) => {
+            let response = UserResponse {
+                message: format!("Failed to create database/collection: {}", err),
+                status: StatusCode::BadRequest,
+                body: "".to_owned(),
+            };
+            HttpResponse::BadRequest()
+                .content_type("application/json")
+                .json(response)
+        }
     }
 }
 
@@ -75,31 +116,45 @@ pub async fn create(user_req: web::Form<PartialUser>) -> HttpResponse {
     let userdb = UserDb::new(DATABASE_NAME, COLLECTION_NAME).await;
     match userdb.create_user(user.clone()).await {
         Ok(..) => {
-            let user_json = match serde_json::to_string(&user) {
-                Ok(json) => json,
-                Err(e) => {
-                    return HttpResponse::InternalServerError()
-                        .body(format!("Failed to serialize user: {}", e.to_string()))
-                }
-            };
             HttpResponse::Ok()
                 .content_type("application/json")
-                .body(user_json)
+                .json(user)
         }
-        Err(e) => HttpResponse::BadRequest()
-            .content_type("text/plain")
-            .body(format!("Failed to add user to database: {}", e.to_string())),
+        Err(err) => {
+            let response = UserResponse {
+                message: format!("Failed to add user to collection: {}", err),
+                status: StatusCode::BadRequest,
+                body: "".to_owned(),
+            };
+            HttpResponse::BadRequest()
+                .content_type("application/json")
+                .json(response)
+        }
     }
 }
 
 pub async fn delete(id: web::Path<String>) -> HttpResponse {
     let userdb = UserDb::new(DATABASE_NAME, COLLECTION_NAME).await;
     match userdb.delete_user(&id).await {
-        Ok(..) => HttpResponse::Ok().content_type("text/plain").body(format!(
-            "deleted user with id: {}", id)
-        ),
-        Err(err) => HttpResponse::BadRequest()
-            .content_type("text/plain")
-            .body(format!("Failed to create database: {}", err.to_string())),
+        Ok(..) => {
+            let response = UserResponse {
+                message: format!("deleted user with id: {}", id),
+                status: StatusCode::Ok,
+                body: "".to_owned(),
+            };
+            HttpResponse::Ok()
+                .content_type("application/json")
+                .json(response)
+        }
+        Err(err) => {
+            let response = UserResponse {
+                message: format!("Failed to delete user: {}", err),
+                status: StatusCode::BadRequest,
+                body: "".to_owned(),
+            };
+            HttpResponse::BadRequest()
+                .content_type("application/json")
+                .json(response)
+        }
     }
 }
