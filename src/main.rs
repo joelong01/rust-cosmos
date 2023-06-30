@@ -12,7 +12,7 @@ mod utility;
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use cosmosdb::get_cosmos_secrets;
-use log::{trace, error};
+use log::{trace};
 use once_cell::sync::OnceCell;
 use std::env;
 
@@ -66,8 +66,11 @@ async fn main() -> std::io::Result<()> {
     let secrets = get_cosmos_secrets();
     match secrets {
         Ok(secrets) => trace!("Secrets found.  Account: {:?}", secrets.account),
-        Err(error) => error!("Failed to get secrets: {}", error),
+        Err(error) => panic!("Failed to get secrets: {}\n\
+                              If you are running in a dev container for the \
+                              first time, you need to restart VS Code.", error),
     }
+    
 
     // normally you would set the RUST_LOG environment variable in the process that this app is running in, and then
     // you'd have this code that checks for it and errors out if it doesn't exist.  this value is set above, so it will
